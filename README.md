@@ -1,5 +1,4 @@
-# Homework 1
-Contains:    
+Homework 1 Contains:    
 [Part A](3DScene.html): 3D Scene   
 [Part B](ImageProcesser.html): Image Processer     
 [Part C](GameOfLifeColor.html): Game of Life     
