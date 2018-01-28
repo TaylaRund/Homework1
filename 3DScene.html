@@ -1,0 +1,402 @@
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Phong and Vertex Displacement</title>
+		<meta charset="utf-8">
+		<style>
+			body {
+        background: #777;
+			  margin: 0px;
+				overflow: hidden;
+			}
+		</style>
+	</head>
+<body>
+
+<div id="container"></div>
+
+  <script src="js/three.js"></script>
+
+
+
+  <script id="vertexShader" type="x-shader/x-vertex">
+
+  	uniform mat4 modelMatrix;
+  	uniform mat4 viewMatrix;
+    uniform mat4 projectionMatrix;
+
+    attribute vec3 position;
+  	attribute vec3 normal;
+
+    uniform vec3 light1_pos;
+    uniform vec3 light2_pos;
+    uniform vec3 light3_pos;
+
+  	varying vec3 N, L1, L2, V, L3;
+
+  	void main() {
+
+    	vec4 position = viewMatrix * modelMatrix * vec4(position, 1.0);
+
+    	vec3 P = position.xyz;
+
+    	N = vec3(normalize(viewMatrix * modelMatrix * vec4(normal.xyz, 0.0)  ).xyz) ;
+
+    	vec4 L1_cam = viewMatrix * vec4(light1_pos, 1.0);
+    	vec4 L2_cam = viewMatrix * vec4(light2_pos, 1.0);
+      vec4 L3_cam = viewMatrix * vec4(light3_pos, 1.0);
+
+    	L1 = vec3(normalize(L1_cam - position).xyz);
+    	L2 = vec3(normalize(L2_cam - position).xyz);
+      L3 = vec3(normalize(L3_cam - position).xyz);
+
+    	V = normalize(-P);
+
+
+
+    	gl_Position = projectionMatrix * position; 
+  	}
+
+	</script>
+
+	<script id="fragmentShader" type="x-shader/x-fragment">
+
+    precision mediump float;
+
+  	varying vec3 V, N, L1, L2, L3;
+  	float spec_intensity = 32.0;
+
+  	uniform vec3 ambient;
+
+  	uniform vec3 light1_diffuse;
+  	uniform vec3 light2_diffuse;
+    uniform vec3 light3_diffuse;
+
+  	uniform vec3 light1_specular;
+  	uniform vec3 light2_specular;
+    uniform vec3 light3_specular;
+
+  	void main() {
+
+    	vec4 outColor1 = vec4(0.0);
+    	vec4 outColor2 = vec4(0.0);
+      vec4 outColor3 = vec4(0.0);
+    
+
+    	float diff1 = max(0.0, dot(N, L1));
+    	vec3 color1 = diff1 * light1_diffuse;
+    	vec3 R1 = normalize(reflect(-L1,N));
+    	float spec1 = pow( max(dot(R1, V), 0.0), spec_intensity);
+    	color1 += spec1 * light1_specular;
+    	if (spec1 > 1.0) {
+      		outColor1 = vec4(light1_specular,1.0);
+    	} else {
+      		outColor1 = clamp(vec4(color1,1.0), 0.0,1.0);
+    	}
+    
+    	float diff2 = max(0.0, dot(N, L2));
+    	vec3 color2 = diff2 * light2_diffuse;
+    	vec3 R2 = normalize(reflect(-L2,N));
+    	float spec2 = pow( max(dot(R2, V), 0.0), spec_intensity);
+    	color2 += spec2 * light2_specular;
+    	if (spec2 > 1.0) {
+      		outColor2 = vec4(light2_specular,1.0);
+    	} else {
+      		outColor2 = clamp(vec4(color2,1.0), 0.0,1.0);
+    	}
+
+      float diff3 = max(0.0, dot(N, L3));
+      vec3 color3 = diff3 * light3_diffuse;
+      vec3 R3 = normalize(reflect(-L3,N));
+      float spec3 = pow( max(dot(R3, V), 0.0), spec_intensity);
+      color3 += spec3 * light3_specular;
+      if (spec3 > 1.0) {
+          outColor3 = vec4(light3_specular,1.0);
+      } else {
+          outColor3 = clamp(vec4(color3,1.0), 0.0,1.0);
+      }
+
+      gl_FragColor = clamp(vec4(ambient, 1.0) + outColor1 + outColor2 + outColor3, 0.0, 1.0);
+	  }
+
+	</script>
+
+
+
+
+  <script id="vertexShaderDynamic" type="x-shader/x-vertex">
+
+    precision mediump float;
+    precision mediump int;
+
+    uniform mat4 modelViewMatrix;
+    uniform mat4 projectionMatrix;
+
+    attribute vec3 position;
+    
+    uniform vec4 my_color;
+    uniform float time;
+
+    varying vec3 vPosition;
+    varying vec4 vColor;
+
+    void main() {
+
+      vec3 pos = position;
+
+      //uncomment for basic vertex displacement
+      pos.x += sin(pos.x * 5.0 + time) * 0.1;
+      pos.y += cos(pos.y * 5.0 + time) * 0.1;
+      pos.z += sin(pos.z * 5.0 + time) * 0.15;
+
+      vPosition = pos;
+      vColor = my_color;
+
+      gl_Position = projectionMatrix * modelViewMatrix * vec4( pos, 1.0 );
+      
+    }
+
+  </script>
+
+  <script id="fragmentShaderDynamic" type="x-shader/x-fragment">
+
+    precision mediump float;
+    precision mediump int;
+
+    uniform float time;
+
+    varying vec3 vPosition;
+    varying vec4 vColor;
+
+    void main() {
+      vec4 color;
+      color = vec4( vColor );
+      color.r += sin( vPosition.x * 10.0 + time ) * 0.5;
+            color.b += cos( vPosition.x * 5.0 + time  ) * 1.0;
+      gl_FragColor = color;
+    }
+
+  </script>
+
+
+
+
+  <script id="texVS" type="x-shader/x-vertex">
+
+    uniform mat4 modelMatrix;
+    uniform mat4 viewMatrix;
+    uniform mat4 projectionMatrix;
+
+    attribute vec3 position;
+    attribute vec2 uv;
+
+    varying vec2 vUV;
+
+    void main() {
+      vec4 position = viewMatrix * modelMatrix * vec4(position, 1.0);
+      vUV = uv;
+      gl_Position = projectionMatrix * position; 
+    }
+
+  </script>
+
+  <script id="texFS" type="x-shader/x-fragment">
+
+    precision mediump float;
+
+    uniform sampler2D tex;
+    varying vec2 vUV;
+
+    void main() {
+      vec4 c = texture2D(tex, vUV);
+      gl_FragColor = vec4(vUV.xy, 1.0, 1.0);
+    }
+
+  </script>
+
+
+
+
+	<script>
+				
+  	var container;
+
+	  var camera, scene, renderer;
+
+    var vs = document.getElementById( 'vertexShader' ).textContent;
+    var fs = document.getElementById( 'fragmentShader' ).textContent;
+    var vsd = document.getElementById( 'vertexShaderDynamic' ).textContent;
+    var fsd = document.getElementById( 'fragmentShaderDynamic' ).textContent;
+    var tex_vs = document.getElementById( 'texVS' ).textContent;
+    var tex_fs = document.getElementById( 'texFS' ).textContent;
+
+    container = document.getElementById( 'container' );
+
+    camera = new THREE.PerspectiveCamera( 60.0, window.innerWidth / window.innerHeight, 0.1, 50 );
+    camera.position.z = 6;
+
+    scene = new THREE.Scene();
+
+    initPhong();
+    initDynamic();
+    initMix();
+    initTex();
+
+    renderer = new THREE.WebGLRenderer();
+    renderer.setClearColor( 0x999999 );
+    renderer.setSize( window.innerWidth, window.innerHeight );
+    container.appendChild( renderer.domElement );
+
+    window.addEventListener( 'resize', onWindowResize, false );
+
+    animate();
+
+	  var mesh1, mesh2, mesh3, mesh4;
+	  var material;
+    var material1;
+    var material3;
+    var material4;
+    var light, light2;
+    var texture1;
+
+	  function initPhong() {
+
+		
+    	var ambient = new THREE.Vector3(0.1,0.1,0.1);
+
+    	var light1_pos = new THREE.Vector3(0.0,10.0,0.0); //from above
+    	var light1_diffuse = new THREE.Vector3(1.0,0.0,0.0);
+    	var light1_specular = new THREE.Vector3(1.0,1.0,1.0);
+    
+    	var light2_pos = new THREE.Vector3(-10.0,0.0,3.0); //from the left
+    	var light2_diffuse = new THREE.Vector3(0.0,0.0,1.0);
+    	var light2_specular = new THREE.Vector3(1.0,1.0,1.0);
+
+      var light3_pos = new THREE.Vector3(10.0,-3.0,5.0); //from the left
+      var light3_diffuse = new THREE.Vector3(0.0,1.0,0.0);
+      var light3_specular = new THREE.Vector3(1.0,1.0,1.0);
+
+      var geometry3 = new THREE.CylinderGeometry( .5, .5, 1, 25, 5, false);
+
+    	var uniforms =  {
+    		ambient: { type: "v3", value: ambient },
+    		light1_pos: { type: "v3", value: light1_pos },
+    		light1_diffuse: { type: "v3", value: light1_diffuse },
+    		light1_specular:  { type: "v3", value: light1_specular },
+    		light2_pos: { type: "v3", value: light2_pos },
+    		light2_diffuse: { type: "v3", value: light2_diffuse },
+    		light2_specular:  { type: "v3", value: light2_specular },
+        light3_pos: { type: "v3", value: light3_pos },
+        light3_diffuse: { type: "v3", value: light3_diffuse },
+        light3_specular:  { type: "v3", value: light3_specular },
+      };
+
+     	material = new THREE.RawShaderMaterial( {
+    		uniforms: uniforms,
+    		vertexShader: vs,
+    		fragmentShader: fs,	
+		  } );
+
+      mesh3 = new THREE.Mesh( geometry3, material );
+		  mesh3.translateX(-5.0);
+      scene.add( mesh3 );  
+	  }
+
+    function initDynamic() {
+      var geometry1 = new THREE.SphereGeometry( 1, 64, 64 );
+
+      material1 = new THREE.RawShaderMaterial( {
+        uniforms: {
+          time: { type: "f", value: 1.0 },
+          my_color: { type: "v4", value: new THREE.Vector4(0.0,0.0,1.0,1.0) }
+        },
+        vertexShader: vsd,
+        fragmentShader: fsd,
+      } );
+
+      mesh1 = new THREE.Mesh( geometry1, material1);
+      mesh1.translateY(2.0);
+      scene.add( mesh1 );
+    }
+
+    function initMix() {
+      var geometry4 = new THREE.TorusKnotGeometry( 0.75, 0.1, 100, 16 );
+      material4 = new THREE.MeshPhongMaterial({ color: 0xffffff });
+      mesh4 = new THREE.Mesh(geometry4, material4);
+      mesh4.translateY(-2.0);
+      scene.add(mesh4);
+
+      light = new THREE.DirectionalLight(0xff00ff, 0.55);
+      light.position.set(1, 0, 0);
+      scene.add(light);
+
+      light2 = new THREE.DirectionalLight(0xff00ff, 0.55);
+      light2.position.set(-1, 0, 0);
+      scene.add(light2);
+    }
+
+    function initTex() {
+      var objTex = new THREE.MeshPhongMaterial( {color: 0xff0000});
+      var uniforms2 = {
+        tex: { type: "t", value: objTex  },
+      };
+  
+
+      material2 = new THREE.RawShaderMaterial( {
+        uniforms: uniforms2,
+        vertexShader: tex_vs,
+        fragmentShader: tex_fs, 
+      } );
+
+      var geometry2 = new THREE.BoxGeometry( 1, 1, 1 );
+      mesh2 = new THREE.Mesh(geometry2, material2);
+      mesh2.translateX(5.0);
+      scene.add (mesh2);
+    }
+
+	  function animate() {
+
+		  requestAnimationFrame( animate );
+		  render();
+
+	  }
+
+	  function render() {
+
+		  var time = performance.now();
+
+      mesh1.rotation.x =  time * 0.0009;
+      mesh1.rotation.y = time * 0.0005;
+      
+      mesh2.rotation.x = time * 0.0002;
+      mesh2.rotation.y = time * 0.0005;
+      mesh2.rotation.z = time * 0.0007;
+
+      mesh3.rotation.x = time * 0.0009;
+
+		  mesh4.rotation.x = time * 0.00005;
+		  mesh4.rotation.y = time * 0.0005;
+      mesh4.rotation.z = -(time * 0.00025);
+
+      material.uniforms.light1_diffuse.value = new THREE.Vector3(0.0,1.0,1.0);
+      material.uniforms.light2_diffuse.value = new THREE.Vector3(1.0,1.0,0.0);
+      material.uniforms.light3_diffuse.value = new THREE.Vector3(1.0,0.0,1.0);
+
+		  renderer.render( scene, camera );
+	  }
+
+
+	  function onWindowResize( event ) {
+
+		  camera.aspect = window.innerWidth / window.innerHeight;
+		  camera.updateProjectionMatrix();
+
+		  renderer.setSize( window.innerWidth, window.innerHeight );
+
+	  }
+
+	 </script>
+	</body>
+</html>
+

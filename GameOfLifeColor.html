@@ -1,0 +1,234 @@
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Game of Life Color 2</title>
+		<meta charset="utf-8">
+		<style>
+			body {
+			  	margin: 0px;
+				overflow: hidden;
+			}
+		</style>
+	</head>
+<body>
+
+	<div id="container"></div>
+
+    <script src="js/three.js"></script>
+  
+
+    <script id="vertexShader" type="x-shader/x-vertex">
+		uniform mat4 modelViewMatrix;
+      	uniform mat4 projectionMatrix;
+
+		attribute vec3 position;
+	
+    	void main() {
+ 			gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+		}
+
+    </script>
+
+
+
+
+    <script id="fragmentShader" type="x-shader/x-fragment">
+
+		precision mediump float;
+
+		uniform vec2 textureSize; //The width and height of our screen
+		uniform sampler2D bufferTexture; //Our input texture
+		
+		void main() {
+
+			vec2 pt = gl_FragCoord.xy;
+
+			vec4 C = texture2D( bufferTexture, vec2( pt.x/textureSize.x, pt.y/textureSize.y ) );
+
+			float cx = pt.x/textureSize.x;
+
+			float left = cx - 1.0/textureSize.x;
+			if (left < 0.0) { left = 1.0; }
+			float right = cx + 1.0/textureSize.x;
+			if (left > 1.0) { left = 0.0; }
+
+			float cy = pt.y/textureSize.y;
+			
+			float down = cy - 1.0/textureSize.y;
+			if (down < 0.0) { down = 1.0; }
+			float up = cy + 1.0/textureSize.y;
+			if (up > 1.0) { up = 0.0; }
+
+
+			vec4 arr[8];
+
+			arr[0] = texture2D( bufferTexture, vec2( cx   , up ));   //N
+			arr[1] = texture2D( bufferTexture, vec2( right, up ));   //NE
+			arr[2] = texture2D( bufferTexture, vec2( right, cy ));   //E
+			arr[3] = texture2D( bufferTexture, vec2( right, down )); //SE
+			arr[4] = texture2D( bufferTexture, vec2( cx   , down )); //S
+			arr[5] = texture2D( bufferTexture, vec2( left , down )); //SW
+			arr[6] = texture2D( bufferTexture, vec2( left , cy ));   //W
+			arr[7] = texture2D( bufferTexture, vec2( left , up ));   //NW
+
+			int cnt = 0;
+			for(int i=0;i<8;i++){
+				if (arr[i].r >= 0.66) { 
+					cnt++; // cnt increases if next to alive cell
+				} else if (arr[i].r < 0.66 && arr[i].r >= 0.33) { 
+					cnt = cnt; // cnt stays the same if next to sick cell
+				} else { 
+					cnt --; // cnt goes down if next to dead cell
+				}
+			}
+
+				        
+			if (C.r >= 0.66) { //cell is alive
+				if (cnt < -4 || cnt > 4) { // dead				
+					gl_FragColor = vec4(0.32, 0.0, 0.1, 1.0);
+				} else if (cnt >= -4 && cnt <= 1 && cnt != 0) { // sick
+					gl_FragColor = vec4(0.5, 0.0, 0.0, 1.0);
+				} else { // alive
+					gl_FragColor = vec4(0.67, 0.0, 0.0, 1.0);
+				}
+			} else if(C.r < 0.66 && C.r >= 0.33) { // cell is sick
+				if (cnt < 0) { // dead
+					gl_FragColor = vec4(0.32, 0.0, 0.7, 1.0);
+				} else if (cnt >= -2 && cnt < 2) { // sick
+					gl_FragColor = vec4(0.65, 1.0, 1.0, 1.0);
+				} else { // alive
+					gl_FragColor = vec4(0.67, 0.0, 0.2, 1.0);
+				}
+			} else { //cell is dead
+				if (cnt > -2 && cnt < -4) { // dead
+					gl_FragColor = vec4(0.32, 0.0, 0.7, 1.0);
+				} else if(cnt >= -3 && cnt <= 2) { // sick
+					gl_FragColor = vec4(0.34, 0.0, 0.7, 1.0);
+				} else { // alive
+					gl_FragColor = vec4(0.67, 0.0, 0.0, 1.0);
+				}
+			}
+		}
+	</script>
+
+
+
+	<script>
+		
+		var scene;
+		var camera;
+		var renderer;
+
+		var resX = 500;
+		var resY = 500;
+
+		var bufferScene;
+		var bufferMaterial;
+		var bufferObject;
+		var FBO_A, FBO_B;
+		var plane;
+		var fullScreenQuad;
+
+		scene_setup();
+
+		function scene_setup(){
+			
+			scene = new THREE.Scene();
+			var width = window.innerWidth;
+			var height = window.innerHeight;
+
+			camera = new THREE.OrthographicCamera( width / -2, width / 2, height / 2, height / -2, 0.1, 1000 );
+			camera.position.z = 0.2;
+
+			renderer = new THREE.WebGLRenderer();
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			document.body.appendChild( renderer.domElement );
+		}
+
+		FBO_setup();
+
+		function FBO_setup(){
+			bufferScene = new THREE.Scene();
+			
+			FBO_A = new THREE.WebGLRenderTarget( resX, resY, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter});
+			FBO_B = new THREE.WebGLRenderTarget( resX, resY, { minFilter: THREE.LinearFilter, magFilter: THREE.NearestFilter} );
+
+			var dataTexture = createDataTexture();
+
+			bufferMaterial = new THREE.RawShaderMaterial( {
+				uniforms: {
+					bufferTexture: { type: "t", value: dataTexture },
+					textureSize : {type: "v2", value: new THREE.Vector2( resX, resY )}
+				},
+				vertexShader: document.getElementById( 'vertexShader' ).innerHTML,
+				fragmentShader: document.getElementById( 'fragmentShader' ).innerHTML
+			} );
+
+			plane = new THREE.PlaneBufferGeometry( window.innerWidth, window.innerHeight )
+
+			bufferObject = new THREE.Mesh( plane, bufferMaterial );
+			bufferScene.add(bufferObject);
+
+			fullScreenQuad = new THREE.Mesh( plane, new THREE.MeshBasicMaterial() );
+			scene.add(fullScreenQuad);
+		}
+
+		render();
+
+		function render() {
+
+			requestAnimationFrame( render );
+
+			renderer.render(bufferScene, camera, FBO_B);
+			
+			fullScreenQuad.material.map = FBO_B.texture;
+
+			renderer.render( scene, camera );
+
+			var t = FBO_A;
+			FBO_A = FBO_B;
+			FBO_B = t;
+			bufferMaterial.uniforms.bufferTexture.value = FBO_A.texture;
+		}
+
+		function createDataTexture() {
+
+			var size = resX * resY;
+			var data = new Uint8Array( 4 * size );
+
+			for ( var i = 0; i < size; i++ ) {
+
+				var stride = i * 4;
+
+				if (Math.random() < 0.33) {
+					data[ stride ] = 255;
+					data[ stride + 1 ] = 127;
+					data[ stride + 2 ] = 0;
+					data[ stride + 3 ] = 255;
+				} else if (Math.random() >= 0.33 && Math.random() < 0.66) {
+					data[ stride ] = 127;
+					data[ stride + 1 ] = 0;
+					data[ stride + 2 ] = 255;
+					data[ stride + 3 ] = 127;
+				} else {
+					data[ stride ] = 0;
+					data[ stride + 1 ] = 255;
+					data[ stride + 2 ] = 127;
+					data[ stride + 3 ] = 0;
+				}
+			}
+
+			console.log(data);
+			var texture = new THREE.DataTexture( data, resX, resY, THREE.RGBAFormat );
+			
+			texture.needsUpdate = true;
+
+			return texture;
+
+		}
+	</script>
+
+</body>
+</html>
+

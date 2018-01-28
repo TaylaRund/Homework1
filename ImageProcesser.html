@@ -1,0 +1,242 @@
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Image Processer</title>
+		<meta charset="utf-8">
+		<style>
+			body {
+			  	margin: 0px;
+				overflow: hidden;
+			}
+		</style>
+	</head>
+<body>
+
+	<div id="container"></div>
+
+    <script src="js/three.js"></script>
+
+    <script id="vertexShader" type="x-shader/x-vertex">
+
+	uniform mat4 modelViewMatrix;
+	uniform mat4 projectionMatrix;
+	
+    attribute vec3 position;
+	attribute vec2 texCoords;
+
+	varying vec2 UV;
+
+	void main() {
+
+	   	UV = texCoords;
+
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); 
+		
+     }
+
+    </script>
+
+
+    <script id="fragmentShader" type="x-shader/x-fragment">
+
+	precision mediump float;
+
+	uniform sampler2D t1;
+	uniform float rx;
+	uniform float ry;
+	uniform float mixVal;
+
+	varying vec2 UV;
+
+    void main() {
+		
+		vec2 texel = vec2( 1.0 / rx, 1.0 / ry );
+
+		const mat3 Gxr = mat3(  0,  -1,   0,
+							   -1,  10,  -1,
+							    0,  -1,   0 );
+
+		const mat3 Gxg = mat3(  0,  -1,   0,
+							   -1, 4.5,  -1,
+							    0,  -1,   0 );
+
+		const mat3 Gxb = mat3(  0,  -1,   0,
+							   -1,   1,  -1,
+							    0,  -1,   0 );
+		
+		// fetch the 3x3 neighborhood of a fragment
+		float tx0y0r = texture2D( t1, UV + texel * vec2( -1, -1 ) ).r;
+		float tx0y1r = texture2D( t1, UV + texel * vec2( -1,  0 ) ).r;
+		float tx0y2r = texture2D( t1, UV + texel * vec2( -1,  1 ) ).r;
+
+		float tx0y0g = texture2D( t1, UV + texel * vec2( -1, -1 ) ).g;
+		float tx0y1g = texture2D( t1, UV + texel * vec2( -1,  0 ) ).g;
+		float tx0y2g = texture2D( t1, UV + texel * vec2( -1,  1 ) ).g;
+
+		float tx0y0b = texture2D( t1, UV + texel * vec2( -1, -1 ) ).b;
+		float tx0y1b = texture2D( t1, UV + texel * vec2( -1,  0 ) ).b;
+		float tx0y2b = texture2D( t1, UV + texel * vec2( -1,  1 ) ).b;
+
+		float tx1y0r = texture2D( t1, UV + texel * vec2(  0, -1 ) ).r;
+		float tx1y1r = texture2D( t1, UV + texel * vec2(  0,  0 ) ).r;
+		float tx1y2r = texture2D( t1, UV + texel * vec2(  0,  1 ) ).r;
+
+		float tx1y0g = texture2D( t1, UV + texel * vec2(  0, -1 ) ).g;
+		float tx1y1g = texture2D( t1, UV + texel * vec2(  0,  0 ) ).g;
+		float tx1y2g = texture2D( t1, UV + texel * vec2(  0,  1 ) ).g;
+
+		float tx1y0b = texture2D( t1, UV + texel * vec2(  0, -1 ) ).b;
+		float tx1y1b = texture2D( t1, UV + texel * vec2(  0,  0 ) ).b;
+		float tx1y2b = texture2D( t1, UV + texel * vec2(  0,  1 ) ).b;
+
+		float tx2y0r = texture2D( t1, UV + texel * vec2(  1, -1 ) ).r;
+		float tx2y1r = texture2D( t1, UV + texel * vec2(  1,  0 ) ).r;
+		float tx2y2r = texture2D( t1, UV + texel * vec2(  1,  1 ) ).r;
+
+		float tx2y0g = texture2D( t1, UV + texel * vec2(  1, -1 ) ).g;
+		float tx2y1g = texture2D( t1, UV + texel * vec2(  1,  0 ) ).g;
+		float tx2y2g = texture2D( t1, UV + texel * vec2(  1,  1 ) ).g;
+
+		float tx2y0b = texture2D( t1, UV + texel * vec2(  1, -1 ) ).b;
+		float tx2y1b = texture2D( t1, UV + texel * vec2(  1,  0 ) ).b;
+		float tx2y2b = texture2D( t1, UV + texel * vec2(  1,  1 ) ).b;
+
+		float valueGxr = Gxr[0][0] * tx0y0r + Gxr[1][0] * tx1y0r + Gxr[2][0] * tx2y0r + 
+						 Gxr[0][1] * tx0y1r + Gxr[1][1] * tx1y1r + Gxr[2][1] * tx2y1r + 
+						 Gxr[0][2] * tx0y2r + Gxr[1][2] * tx1y2r + Gxr[2][2] * tx2y2r;
+
+		float valueGxg = Gxg[0][0] * tx0y0g + Gxg[1][0] * tx1y0g + Gxg[2][0] * tx2y0g + 
+						 Gxg[0][1] * tx0y1g + Gxg[1][1] * tx1y1g + Gxg[2][1] * tx2y1g + 
+						 Gxg[0][2] * tx0y2g + Gxg[1][2] * tx1y2g + Gxg[2][2] * tx2y2g;
+
+		float valueGxb = Gxb[0][0] * tx0y0b + Gxb[1][0] * tx1y0b + Gxb[2][0] * tx2y0g + 
+						 Gxb[0][1] * tx0y1b + Gxb[1][1] * tx1y1b + Gxb[2][1] * tx2y1g + 
+						 Gxb[0][2] * tx0y2b + Gxb[1][2] * tx1y2b + Gxb[2][2] * tx2y2g;
+		
+		vec4 red = vec4(vec3(valueGxr, valueGxg, valueGxb), 1.0);
+		vec4 blue = vec4(vec3(valueGxb, valueGxg, valueGxr), 1.0);
+
+		vec4 texPix = texture2D(t1, UV);
+
+		gl_FragColor = mix(red*texPix, blue*texPix, mixVal); 
+
+	}
+
+	</script>
+
+
+	<script>
+				
+  	var container;
+
+	var camera, scene, renderer;
+
+    var vs = document.getElementById( 'vertexShader' ).textContent;
+    var fs = document.getElementById( 'fragmentShader' ).textContent;
+
+	var mesh;
+	var material;
+
+	var texture1 = new THREE.TextureLoader().load( 'IMG_5418.jpg' );
+
+	var mouseX = 0.0;
+	var mouseY = 0.0;
+
+	init();
+	animate();
+
+	function init() {
+
+		container = document.getElementById( 'container' );
+
+		camera = new THREE.PerspectiveCamera( 60.0, window.innerWidth / window.innerHeight, 0.1, 50 );
+		camera.position.z = 2;
+
+		scene = new THREE.Scene();
+
+		var geometry = new THREE.BufferGeometry();
+
+		var vertices = new Float32Array( [
+			-1.0, -1.0, 0.0,
+			+1.0, -1.0, 0.0,
+			+1.0, +1.0, 0.0,
+	 
+			-1.0, -1.0, 0.0,
+			+1.0, +1.0, 0.0,
+			-1.0, +1.0, 0.0,
+
+		] );
+
+		var texCoords = new Float32Array( [
+			0.0, 0.0,
+			1.0, 0.0,
+			1.0, 1.0,
+			
+			0.0, 0.0,
+			1.0, 1.0,
+			0.0, 1.0,
+		] );
+
+		geometry.addAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
+		geometry.addAttribute( 'texCoords', new THREE.BufferAttribute( texCoords, 2 ) );
+
+		var uniforms = {
+    		t1: { type: "t", value: texture1  },
+			rx: {type: "f", value: 1024/2},
+			ry: {type: "f", value: 1024/2},
+			mixVal: {type: "f", value: 0.5},
+		};
+	
+     	material = new THREE.RawShaderMaterial( {
+			uniforms: uniforms,
+            		vertexShader: vs,
+            		fragmentShader: fs,	
+		} );
+
+	    mesh = new THREE.Mesh( geometry, material );
+		mesh.translateX(0.0);
+		mesh.material.side = THREE.DoubleSide;
+        scene.add( mesh );
+
+		renderer = new THREE.WebGLRenderer();
+		renderer.setClearColor( 0x999999 );
+		renderer.setSize( window.innerWidth, window.innerHeight );
+		container.appendChild( renderer.domElement );
+
+        window.addEventListener( 'resize', onWindowResize, false );
+		document.addEventListener('mousemove', onDocumentMouseMove, false);
+		
+	}
+
+	function animate() {
+		requestAnimationFrame( animate );
+		render();
+	}
+
+	function render() {
+		var time = performance.now();
+
+		mesh.material.uniforms.mixVal.value = mouseX;
+
+		renderer.render( scene, camera );
+	}
+
+	function onDocumentMouseMove(event) {
+		event.preventDefault();
+		mouseX = (event.clientX / window.innerWidth) ;
+		mouseY = -(event.clientY / window.innerHeight) ;
+	}
+
+
+	function onWindowResize( event ) {
+		camera.aspect = window.innerWidth / window.innerHeight;
+		camera.updateProjectionMatrix();
+
+		renderer.setSize( window.innerWidth, window.innerHeight );
+	}
+		</script>
+
+	</body>
+</html>
+
