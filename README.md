@@ -4,6 +4,8 @@
 [Part C](GameOfLifeColor.html): Game of Life     
 Part D: Game Graphic Write Up
 
+Unpload check
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r71/three.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r71/three.min.js"></script>
 
